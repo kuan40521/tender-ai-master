@@ -119,13 +119,8 @@ export function TenderDetailSheet({
                 </div>
               </div>
               <ConfidenceIndicator score={tender.confidence} />
-            </div>
-            <Separator className="my-3" />
-            <p className="text-sm leading-relaxed text-foreground/90">
-              <span className="mr-1.5 font-medium">分析理由：</span>
-              {tender.reason || tender.aiReason || "系統已自動基於關鍵字與標題進行潛力分類"}
-            </p>
           </div>
+        </div>
 
           {/* Meta grid */}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">

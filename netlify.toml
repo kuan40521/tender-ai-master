@@ -1,0 +1,14 @@
+[build]
+  command = "prisma generate && next build"
+  publish = ".next"
+
+[functions]
+  node_bundle = true
+
+# 每日 00:00 抓取 (UTC 16:00)
+[[edge_functions]]
+  function = "scheduled-scrape"
+  path = "/api/cron/scrape"
+
+# 由於 Netlify Scheduled Functions 需要放在特定的 functions 資料夾，
+# 我們稍後會建立橋接腳本。

@@ -10,7 +10,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "未提供收件人 Email" }, { status: 400 })
     }
 
-    const testSubject = `[Tender AI] 系統測試郵件 - ${new Date().toLocaleString()}`
+    const now = new Date()
+    const twTime = now.toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
+    const testSubject = `[Tender AI] 系統測試郵件 - ${twTime}`
     const testHtml = `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
         <h2 style="color: #007bff;">🔔 測試成功！</h2>
@@ -18,7 +20,7 @@ export async function POST(request: Request) {
         <p>這是一封來自 <strong>政府採購情報 AI 分析系統</strong> 的測試郵件。</p>
         <p>當您看到這封信，表示系統的 SMTP 通知設定運作正常。</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-        <p style="font-size: 12px; color: #666;">執行時間：${new Date().toISOString()}</p>
+        <p style="font-size: 12px; color: #666;">執行時間 (台灣)：${twTime}</p>
       </div>
     `
 
