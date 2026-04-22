@@ -51,10 +51,10 @@ export async function GET(request: Request) {
     const titles = unanalyzed.map(t => ({ id: String(t.id), title: t.title }))
     const scores = await batchAnalyzeTenders(titles)
 
-    let updatedCount = 0
-    for (const tender of unanalyzed) {
+    // 使用 Promise.all 同步更新資料庫，大幅提升速度
+    await Promise.all(unanalyzed.map(async (tender) => {
       const confidence = scores[String(tender.id)] ?? 50
-      await db.tender.update({
+      return db.tender.update({
         where: { id: tender.id },
         data: {
           confidence,
@@ -62,14 +62,12 @@ export async function GET(request: Request) {
           tags: confidence >= 80 ? JSON.stringify(["系統建置", "IT商機"]) : "[]"
         }
       })
-      updatedCount++
-    }
+    }))
 
     return NextResponse.json({
       success: true,
-      message: `AI 分析完成：共更新 ${updatedCount} 筆標案`,
-      updatedCount,
-      scores
+      message: `AI 分析完成：共更新 ${unanalyzed.length} 筆標案`,
+      updatedCount: unanalyzed.length,
     })
   } catch (error: any) {
     console.error("Re-analyze error:", error)
