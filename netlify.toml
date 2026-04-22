@@ -1,17 +1,10 @@
 [build]
   command = "prisma generate && next build"
   publish = ".next"
-  functions = "functions"
+  functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
-
-# 強制給予腳本排程定義 (這會覆蓋腳本內的設定，更具強制性)
-[functions."scheduled-scrape"]
-  schedule = "30,55 3,16 * * *"
-
-[functions."scheduled-digest"]
-  schedule = "30 9 * * *"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
