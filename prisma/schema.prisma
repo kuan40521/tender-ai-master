@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tender {
+  id          String   @id @default(uuid())
+  agency      String   // 機關名稱
+  title       String   // 標案名稱
+  budget      String   // 預算金額 (字串保存，可能會有 '1,500萬' 這種格式)
+  releaseDate String   // 公告日期
+  dueDate     String   // 截止日期
+  url         String   // 標案網址
+  biddingType String   @default("") // 招標方式
+  procurementType String @default("") // 採購方式
+  confidence  Int      @default(0) // AI 推薦信心度
+  tags        String   @default("[]") // 智能標籤 (JSON String Array)
+  reason      String   @default("") // AI 推薦理由
+  status      String   @default("new") // 狀態: new, tracked, ignored
+  createdAt   DateTime @default(now())
+  
+  @@unique([agency, title, releaseDate]) // 避免重複抓取
+}
+
+model Keyword {
+  id        String   @id @default(uuid())
+  word      String   @unique
+  type      String   // 'positive' or 'negative'
+  createdAt DateTime @default(now())
+}
+
+model Config {
+  key   String @id
+  value String
+}
+
+model Recipient {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// === NextAuth Models ===
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String?   @unique
+  password      String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model CrawlerLog {
+  id            String   @id @default(uuid())
+  date          String   // 案件日期
+  time          String   // 執行時間 hh:mm
+  status        String   // success, failed, warning
+  message       String   @default("")
+  fetchedCount  Int      @default(0)
+  filteredCount Int      @default(0)
+  createdAt     DateTime @default(now())
+}

@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/scrape?cron_secret=tender_ai_cron_2024",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/digest?cron_secret=tender_ai_cron_2024",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}
