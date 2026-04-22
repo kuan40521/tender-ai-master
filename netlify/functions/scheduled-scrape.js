@@ -17,5 +17,5 @@ export const handler = async (event, context) => {
 };
 
 export const config = {
-  schedule: "*/15 * * * *" // 每 15 分鐘拍打一次 API
+  schedule: "* * * * *" // 每分鐘都醒來檢查，精準對時
 };
