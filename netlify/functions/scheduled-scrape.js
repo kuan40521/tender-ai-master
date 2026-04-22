@@ -17,5 +17,5 @@ const handler = async (event, context) => {
 
 module.exports.handler = handler;
 module.exports.config = {
-  schedule: "30 3,16 * * *" // 11:30 CST 和 00:00 CST
+  schedule: "30,55 3,16 * * *" // 11:30, 11:55 CST (上午) 和 00:00, 00:25 CST (午夜)
 };
