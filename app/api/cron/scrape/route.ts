@@ -13,11 +13,17 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const cronSecret = searchParams.get('cron_secret')
   const isForce = searchParams.get('force') === 'true'
+  const isManual = searchParams.get('manual') === 'true'
   const targetDate = searchParams.get('date') // 接收前端傳來的民國日期 (例如 113/04/22)
 
-  // 1. 安全驗證
-  if (process.env.NODE_ENV === 'production' && cronSecret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  // 驗證安全性
+  const isProd = process.env.NODE_ENV === 'production'
+  
+  if (isProd) {
+    // 只有在 (1) 是手動觸發 或 (2) 提供正確 Cron Secret 時才允許執行
+    if (!isManual && cronSecret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   try {

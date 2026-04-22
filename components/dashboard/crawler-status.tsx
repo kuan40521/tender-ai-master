@@ -87,7 +87,7 @@ export function CrawlerStatus({ logs = [], configs = [] }: { logs?: any[], confi
     if (isExecuting) return
     setIsExecuting(true)
     try {
-      const res = await fetch("/api/cron/scrape?force=true")
+      const res = await fetch("/api/cron/scrape?force=true&manual=true")
       const data = await res.json()
       if (data.success) {
         toast.success(data.addedCount > 0 ? `成功抓取並新增 ${data.addedCount} 筆標案` : "抓取完成，今日無新增標案")

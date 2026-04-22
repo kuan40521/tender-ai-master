@@ -10,6 +10,15 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const force = searchParams.get("force") === "true"
+    const cronSecret = searchParams.get('cron_secret')
+    const isManual = searchParams.get('manual') === 'true'
+
+    // 驗證安全性
+    if (process.env.NODE_ENV === 'production') {
+      if (!isManual && cronSecret !== process.env.CRON_SECRET) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
 
     // 找出標案：如果是 force，就抓前 100 筆；如果不是，只抓尚未分析的
     const unanalyzed = await db.tender.findMany({

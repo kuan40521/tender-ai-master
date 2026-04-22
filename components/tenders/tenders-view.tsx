@@ -57,8 +57,9 @@ export function TendersView({
     setIsRefreshing(true)
     try {
       // 加入 force=true 確保手動點擊時能直接執行，不受排程時間限制
+      // 加入 manual=true 讓正式環境允許手動觸發
       // 加入 date 參數傳遞前端設定的民國日期 (例如 113/04/22)
-      const res = await fetch(`/api/cron/scrape?force=true&date=${encodeURIComponent(dateFilter)}`)
+      const res = await fetch(`/api/cron/scrape?force=true&manual=true&date=${encodeURIComponent(dateFilter)}`)
       const data = await res.json()
       if (data.success) {
         toast.success(data.message)
@@ -106,7 +107,8 @@ export function TendersView({
     toast.info("AI 重新分析中，請稍候...")
     try {
       // 加入 force=true 強制重新分析現有標案，以便套用新的過濾邏輯
-      const res = await fetch("/api/cron/analyze?force=true")
+      // 加入 manual=true 讓正式環境允許手動觸發
+      const res = await fetch("/api/cron/analyze?force=true&manual=true")
       const data = await res.json()
       if (data.success) {
         toast.success(data.message)
