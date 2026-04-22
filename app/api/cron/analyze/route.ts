@@ -53,15 +53,28 @@ export async function GET(request: Request) {
 
     // 使用 Promise.all 同步更新資料庫，大幅提升速度
     await Promise.all(unanalyzed.map(async (tender) => {
-      const confidence = scores[String(tender.id)] ?? 50
-      return db.tender.update({
-        where: { id: tender.id },
-        data: {
-          confidence,
-          reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : "潛力一般",
-          tags: confidence >= 80 ? JSON.stringify(["系統建置", "IT商機"]) : "[]"
-        }
-      })
+      const confidence = scores[String(tender.id)]
+      
+      // 只有在 AI 確實有給出分數時才更新
+      if (confidence !== undefined && confidence !== null) {
+        return db.tender.update({
+          where: { id: tender.id },
+          data: {
+            confidence,
+            reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : "潛力一般",
+            tags: confidence >= 80 ? JSON.stringify(["系統建置", "IT商機"]) : "[]"
+          }
+        })
+      } else {
+        // AI 沒給出分數，標記為失敗以便下次重試，而不是給 50 分誤導
+        return db.tender.update({
+          where: { id: tender.id },
+          data: {
+            confidence: 0,
+            reason: "AI 分析失敗：匹配失敗或模型未回傳"
+          }
+        })
+      }
     }))
 
     return NextResponse.json({

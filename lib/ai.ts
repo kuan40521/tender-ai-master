@@ -16,13 +16,10 @@ const model = genAI.getGenerativeModel({ model: "gemini-3.0-flash" })
 export async function batchAnalyzeTenders(titles: { id: string, title: string }[]): Promise<Record<string, number>> {
   if (titles.length === 0) return {}
 
-  // 1. 若無 API Key 則使用模擬邏輯
+  // 1. 若無有效 API Key 則回報錯誤
   if (!apiKey || apiKey === "dummy_key") {
-    const mockRes: Record<string, number> = {}
-    titles.forEach(t => {
-      mockRes[String(t.id)] = 50 + Math.floor(Math.random() * 40)
-    })
-    return mockRes
+    console.error("AI 密鑰無效，請在環境變數中設定 GEMINI_API_KEY");
+    return {}
   }
 
   const chunkSize = 25
@@ -40,7 +37,7 @@ export async function batchAnalyzeTenders(titles: { id: string, title: string }[
 
   const results = await Promise.all(chunks.map(async (chunk) => {
     try {
-      const listText = chunk.map((t) => `ID:${String(t.id)} - ${t.title}`).join("\n")
+      const listText = chunk.map((t) => `[[[ID:${String(t.id)}]]] - ${t.title}`).join("\n")
       const prompt = `${basePrompt}
 請根據標案名稱判定商業價值 (0-100分)。
 正向關鍵字：${positiveStr}
@@ -59,11 +56,16 @@ ${listText}`
       const match = text.match(/\{[\s\S]*\}/)
       if (match) {
         const parsed = JSON.parse(match[0])
-        // 確保 Key 是純 ID (去掉 ID: 這種前綴，如果有出的話)
         const cleaned: Record<string, number> = {}
+        
+        // 寬鬆容錯：支援回傳 [[[ID:123]]] 或 ID:123 或純 123
         Object.entries(parsed).forEach(([key, val]) => {
-          const id = key.replace("ID:", "").trim()
-          cleaned[id] = Number(val)
+          const cleanId = String(key)
+            .replace(/[\[\]]/g, "") // 去掉中括號 [ ]
+            .replace(/^ID[:\-\s]*/i, "") // 只去掉 ID:, ID-, ID 等引導字
+            .trim()
+          
+          cleaned[cleanId] = Number(val)
         })
         return cleaned
       }
