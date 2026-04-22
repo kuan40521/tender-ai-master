@@ -3,12 +3,9 @@
   publish = ".next"
 
 [functions]
-  node_bundle = true
+  # 修正語法：指定使用 esbuild 作為打包器
+  node_bundler = "esbuild"
 
-# 每日 00:00 抓取 (UTC 16:00)
-[[edge_functions]]
-  function = "scheduled-scrape"
-  path = "/api/cron/scrape"
-
-# 由於 Netlify Scheduled Functions 需要放在特定的 functions 資料夾，
-# 我們稍後會建立橋接腳本。
+# 加入以下設定可讓 Netlify 的自動化更加穩定
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
