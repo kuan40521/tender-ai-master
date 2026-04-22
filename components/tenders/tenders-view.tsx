@@ -104,10 +104,16 @@ export function TendersView({
 
   const handleReAnalyze = async () => {
     setIsAnalyzing(true)
+    
+    // 【新增】立即反饋：把目前列表中的標案暫時重置為「分析中」動畫狀態
+    setTenders(prev => prev.map(t => ({
+      ...t,
+      confidence: 0, 
+      reason: "AI 分析中..." 
+    })))
+    
     toast.info("AI 重新分析中，請稍候...")
     try {
-      // 加入 force=true 強制重新分析現有標案，以便套用新的過濾邏輯
-      // 加入 manual=true 讓正式環境允許手動觸發
       const res = await fetch("/api/cron/analyze?force=true&manual=true")
       const data = await res.json()
       if (data.success) {

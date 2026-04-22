@@ -161,13 +161,13 @@ async function runBackgroundTasks(newTenders: any[]) {
     const scores = await batchAnalyzeTenders(titles)
 
     for (const tender of newTenders) {
-      // 【修復】tender.id 是數字，但 AI scores 的 key 是字串，需轉型比對
-      const confidence = scores[String(tender.id)] ?? 50
+      // 確保使用對應的 UUID 抓取分數
+      const confidence = scores[tender.id] || 0
       await db.tender.update({
         where: { id: tender.id },
         data: {
           confidence: confidence,
-          reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : "潛力一般",
+          reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : (confidence === 0 ? "AI 分析失敗" : "潛力一般"),
         }
       })
     }
