@@ -9,7 +9,6 @@ import {
   Settings,
   Radar,
   BellRing,
-  Users,
 } from "lucide-react"
 
 import {
@@ -33,7 +32,6 @@ const navMain = [
 
 const navStrategy = [
   { title: "關鍵字策略", href: "/keywords", icon: Tags },
-  { title: "帳號權限管理", href: "/settings/users", icon: Users },
   { title: "系統設定與通知", href: "/settings", icon: Settings },
 ]
 
