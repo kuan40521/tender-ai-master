@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { batchAnalyzeTenders } from "@/lib/ai"
+import { getMinguoDate, getTWDate } from "@/lib/date"
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-// 對標案觸發 AI 分析
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const force = searchParams.get("force") === "true"
     const cronSecret = searchParams.get('cron_secret')
     const isManual = searchParams.get('manual') === 'true'
+    // date 參數：指定分析哪一天（民國日期格式 113/04/22），預設為今天
+    const dateParam = searchParams.get('date')
 
     // 驗證安全性
     if (process.env.NODE_ENV === 'production') {
@@ -20,9 +22,21 @@ export async function GET(request: Request) {
       }
     }
 
-    // 找出標案：如果是 force，就抓前 100 筆；如果不是，只抓尚未分析的
+    // 預設只分析今天的標案，避免浪費 API 費用
+    const todayDate = getMinguoDate(getTWDate())
+    const targetDate = dateParam || todayDate
+
+    // 找出標案：
+    // - force=true：分析所有未分析的（不限日期）
+    // - 預設：只分析當日（或指定日期）且尚未分析的
     const unanalyzed = await db.tender.findMany({
-      where: force ? {} : {
+      where: force ? {
+        OR: [
+          { confidence: 0 },
+          { reason: { contains: "分析中" } }
+        ]
+      } : {
+        releaseDate: targetDate,
         OR: [
           { confidence: 0 },
           { reason: { contains: "分析中" } }
@@ -33,13 +47,11 @@ export async function GET(request: Request) {
     })
 
     if (unanalyzed.length === 0) {
-      // 所有標案都已分析，顯示目前分布
-      const all = await db.tender.findMany({ select: { id: true, title: true, confidence: true } })
       return NextResponse.json({
         success: true,
-        message: "所有標案已完成 AI 分析",
-        totalTenders: all.length,
-        sample: all.slice(0, 5)
+        message: force
+          ? "所有標案已完成 AI 分析"
+          : `${targetDate} 的標案已全數分析完畢`
       })
     }
 
@@ -47,15 +59,13 @@ export async function GET(request: Request) {
     const configs = await db.config.findMany()
     const threshold = Number(configs.find(c => c.key === "threshold")?.value || "80")
 
-    // 執行批量 AI 分析
+    // 執行批量 AI 分析（平行處理，速度快）
     const titles = unanalyzed.map(t => ({ id: String(t.id), title: t.title }))
     const scores = await batchAnalyzeTenders(titles)
 
-    // 使用 Promise.all 同步更新資料庫，大幅提升速度
     await Promise.all(unanalyzed.map(async (tender) => {
       const confidence = scores[String(tender.id)]
-      
-      // 只有在 AI 確實有給出分數時才更新
+
       if (confidence !== undefined && confidence !== null) {
         return db.tender.update({
           where: { id: tender.id },
@@ -66,7 +76,6 @@ export async function GET(request: Request) {
           }
         })
       } else {
-        // AI 沒給出分數，標記為失敗以便下次重試，而不是給 50 分誤導
         return db.tender.update({
           where: { id: tender.id },
           data: {
@@ -79,8 +88,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `AI 分析完成：共更新 ${unanalyzed.length} 筆標案`,
+      message: `AI 分析完成（${targetDate}）：共更新 ${unanalyzed.length} 筆標案`,
       updatedCount: unanalyzed.length,
+      targetDate,
     })
   } catch (error: any) {
     console.error("Re-analyze error:", error)
