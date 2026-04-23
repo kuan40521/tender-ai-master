@@ -1,0 +1,33 @@
+name: Tender AI 自動排程
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # 每 10 分鐘執行一次
+  workflow_dispatch:         # 允許手動觸發
+
+jobs:
+  scrape:
+    name: 爬蟲 + AI 分析
+    runs-on: ubuntu-latest
+    steps:
+      - name: 觸發爬蟲
+        run: |
+          curl -s "${{ secrets.SITE_URL }}/api/cron/scrape?cron_secret=${{ secrets.CRON_SECRET }}" \
+            -o response.json --max-time 90
+          cat response.json
+
+      - name: 觸發 AI 分析
+        run: |
+          curl -s "${{ secrets.SITE_URL }}/api/cron/analyze?cron_secret=${{ secrets.CRON_SECRET }}" \
+            -o response.json --max-time 90
+          cat response.json
+
+  digest:
+    name: 每日報告寄信
+    runs-on: ubuntu-latest
+    steps:
+      - name: 觸發寄信
+        run: |
+          curl -s "${{ secrets.SITE_URL }}/api/cron/digest?cron_secret=${{ secrets.CRON_SECRET }}" \
+            -o response.json --max-time 30
+          cat response.json
