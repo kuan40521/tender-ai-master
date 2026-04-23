@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Search, User, LogOut } from "lucide-react"
+import { Bell, Search } from "lucide-react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -19,14 +19,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useSession, signOut } from "next-auth/react"
 import { Badge } from "@/components/ui/badge"
 import { useTextSize, TextSize } from "@/components/providers/text-size-provider"
 import { Type } from "lucide-react"
 
 export function TopBar() {
   const { textSize, setTextSize } = useTextSize()
-  const { data: session } = useSession()
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/70 md:px-5">
@@ -93,45 +91,14 @@ export function TopBar() {
           </Badge>
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="h-9 gap-2 px-2"
-              aria-label="使用者選單"
-            >
-              <Avatar className="size-7">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
-                  {session?.user?.name?.[0] || <User className="size-3.5" />}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden text-sm font-medium md:inline">
-                {session?.user?.name || "未登入"}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span className="text-sm">{session?.user?.name || "訪客"}</span>
-                <span className="text-xs font-normal text-muted-foreground text-wrap">
-                  {session?.user?.email || "guest@example.com"}
-                </span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 size-4" />
-              個人資料
-            </DropdownMenuItem>
-            <DropdownMenuItem>偏好設定</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut()}>
-              <LogOut className="mr-2 size-4" />
-              登出
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label="系統管理員"
+        >
+          <span className="text-xs font-medium">系統管理員</span>
+        </Button>
       </div>
     </header>
   )
