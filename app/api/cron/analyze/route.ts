@@ -28,7 +28,7 @@ export async function GET(request: Request) {
           { reason: { contains: "分析中" } }
         ]
       },
-      take: 25,
+      take: 100,
       orderBy: { createdAt: 'desc' }
     })
 

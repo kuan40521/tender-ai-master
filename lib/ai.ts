@@ -37,8 +37,14 @@ export async function batchAnalyzeTenders(titles: { id: string, title: string }[
   const config = await db.config.findUnique({ where: { key: "ai_prompt" } })
   const basePrompt = (config?.value || "你是一個資深的 IT 產業商機分析師。")
 
+  // 切成多個 chunk，全部平行送出，速度比循序快 N 倍
+  const chunks: typeof titlesForAi[] = []
   for (let i = 0; i < titlesForAi.length; i += chunkSize) {
-    const chunk = titlesForAi.slice(i, i + chunkSize)
+    chunks.push(titlesForAi.slice(i, i + chunkSize))
+  }
+
+  const chunkResults = await Promise.all(chunks.map(async (chunk) => {
+    const partial: Record<string, number> = {}
     try {
       const listText = chunk.map((t) => `序號:${t.aiId} - ${t.title}`).join("\n")
       const prompt = `${basePrompt}
@@ -48,29 +54,35 @@ export async function batchAnalyzeTenders(titles: { id: string, title: string }[
 2. **負向排除**：若標案名稱包含 [${negativeStr}]，分數不應超過 20 分。
 
 請根據標案名稱判定商業價值 (0-100分)。
-請回傳 JSON 格式：{"序號": 分數} 
+請回傳 JSON 格式：{"序號": 分數}
 範例：{"1": 85, "2": 15}
 絕對不要包含任何文字說明。
 
 待分析清單：
 ${listText}`
-      
+
       const result = await model.generateContent(prompt)
       const text = await result.response.text()
       const match = text.match(/\{[\s\S]*\}/)
-      
+
       if (match) {
         const parsed = JSON.parse(match[0])
         Object.entries(parsed).forEach(([aiId, score]) => {
           const originalUuid = idMap[String(aiId).trim()]
           if (originalUuid) {
-            results[originalUuid] = Number(score)
+            partial[originalUuid] = Number(score)
           }
         })
       }
     } catch (e) {
       console.error("[AI Batch Error]", e)
     }
+    return partial
+  }))
+
+  // 合併所有 chunk 結果
+  for (const partial of chunkResults) {
+    Object.assign(results, partial)
   }
 
   return results

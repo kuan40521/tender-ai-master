@@ -97,9 +97,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // 5. 執行 AI 分析（必須 await，Netlify Serverless 不支援 fire-and-forget）
+    // 5. 觸發 AI 分析（交給 scheduled-analyze 每 5 分鐘補跑，爬蟲本身快速回傳）
     if (newlyAdded.length > 0) {
-      await runBackgroundTasks(newlyAdded)
+      runBackgroundTasks(newlyAdded).catch(e => console.error("Background task error:", e))
     }
 
     // 6. 紀錄執行狀態
