@@ -97,9 +97,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // 5. 觸發 AI 分析（交給 scheduled-analyze 每 5 分鐘補跑，爬蟲本身快速回傳）
+    // 5. 等待 AI 分析完成（平行處理，與 analyze 路由同樣速度）
     if (newlyAdded.length > 0) {
-      runBackgroundTasks(newlyAdded).catch(e => console.error("Background task error:", e))
+      await runBackgroundTasks(newlyAdded)
     }
 
     // 6. 紀錄執行狀態
@@ -150,9 +150,7 @@ export async function GET(request: Request) {
   }
 }
 
-// 在背景慢慢處理 AI 請求，避免 Rate Limit 或卡住前端
 async function runBackgroundTasks(newTenders: any[]) {
-  // 1. 取得設定參數
   const configs = await db.config.findMany()
   const threshold = Number(configs.find(c => c.key === "threshold")?.value || "80")
 
@@ -160,18 +158,26 @@ async function runBackgroundTasks(newTenders: any[]) {
     const titles = newTenders.map(t => ({ id: t.id, title: t.title }))
     const scores = await batchAnalyzeTenders(titles)
 
-    for (const tender of newTenders) {
-      // 確保使用對應的 UUID 抓取分數
-      const confidence = scores[tender.id] || 0
-      await db.tender.update({
-        where: { id: tender.id },
-        data: {
-          confidence: confidence,
-          reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : (confidence === 0 ? "AI 分析失敗" : "潛力一般"),
-        }
-      })
-    }
+    // 平行更新資料庫，與 analyze 路由相同做法
+    await Promise.all(newTenders.map(async (tender) => {
+      const confidence = scores[tender.id]
+      if (confidence !== undefined && confidence !== null) {
+        return db.tender.update({
+          where: { id: tender.id },
+          data: {
+            confidence,
+            reason: confidence >= threshold ? `高潛力 IT 商機 (>=${threshold}%)` : "潛力一般",
+            tags: confidence >= 80 ? JSON.stringify(["系統建置", "IT商機"]) : "[]"
+          }
+        })
+      } else {
+        return db.tender.update({
+          where: { id: tender.id },
+          data: { confidence: 0, reason: "AI 分析失敗：匹配失敗或模型未回傳" }
+        })
+      }
+    }))
   } catch (e) {
-    console.error("Batch AI Analysis failed in background:", e)
+    console.error("Batch AI Analysis failed:", e)
   }
 }
