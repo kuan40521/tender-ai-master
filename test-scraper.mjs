@@ -22,7 +22,7 @@ async function testScraper() {
   let allTenders = []
   let pageIndex = 1
 
-  while (pageIndex <= 10) { // 測試只跑最多 10 頁
+  while (pageIndex <= 100) { // 完整跑完所有頁
     const params = new URLSearchParams({
       "pageSize": String(PAGE_SIZE),
       "pageIndex": String(pageIndex),
