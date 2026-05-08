@@ -18,9 +18,10 @@ export default async function TendersPage({
   const confidenceMin = parseInt(searchParams.confidence_min ?? "0")
   const confidenceMax = parseInt(searchParams.confidence_max ?? "100")
   const date = searchParams.date ?? ""
+  const sort = searchParams.sort ?? "confidence"
 
-  let tenders = []
-  let keywords = []
+  let tenders: any[] = []
+  let keywords: any[] = []
   let total = 0
 
   try {
@@ -36,10 +37,15 @@ export default async function TendersPage({
       ]
     }
 
+    const orderBy =
+      sort === "dueDate" ? { dueDate: "asc" as const } :
+      sort === "createdAt" ? { createdAt: "desc" as const } :
+      { confidence: "desc" as const }
+
     const [fetchedTenders, fetchedKeywords, count] = await Promise.all([
       db.tender.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy,
         take: PAGE_SIZE,
         skip: (page - 1) * PAGE_SIZE,
       }),
@@ -78,6 +84,7 @@ export default async function TendersPage({
           initialStatus={status}
           initialConfidence={[confidenceMin, confidenceMax]}
           initialDate={date}
+          initialSort={sort}
         />
       </div>
     </div>

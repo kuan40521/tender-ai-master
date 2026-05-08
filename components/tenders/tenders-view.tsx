@@ -25,6 +25,7 @@ interface TendersViewProps {
   initialStatus?: string
   initialConfidence?: [number, number]
   initialDate?: string
+  initialSort?: string
 }
 
 export function TendersView({
@@ -37,6 +38,7 @@ export function TendersView({
   initialStatus = "all",
   initialConfidence = [0, 100],
   initialDate = "",
+  initialSort = "confidence",
 }: TendersViewProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -280,6 +282,8 @@ export function TendersView({
           }
           date={currentDate}
           onDateChange={(d) => updateParams({ date: d })}
+          sort={initialSort}
+          onSortChange={(s) => updateParams({ sort: s === "confidence" ? "" : s })}
           budgetRange={budgetRange}
           onBudgetRangeChange={setBudgetRange}
           totalCount={total}

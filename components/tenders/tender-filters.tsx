@@ -1,7 +1,7 @@
 "use client"
 
-import { useRef, useEffect, useState } from "react"
-import { Search, SlidersHorizontal, X, DollarSign, ChevronDown, Download, RotateCcw, Sparkles, Trash2 } from "lucide-react"
+import { useState } from "react"
+import { Search, SlidersHorizontal, X, DollarSign, ChevronDown, Download, RotateCcw, Sparkles, Trash2, ArrowUpDown, Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
 import { type BudgetRange } from "@/components/tenders/tenders-view"
+import { SendReportDialog } from "@/components/tenders/send-report-dialog"
 
 export type StatusFilter = "all" | "new" | "favorited" | "ignored"
 export type ConfidenceRange = [number, number]
@@ -59,6 +60,8 @@ interface TenderFiltersProps {
   onExport?: () => void
   onReAnalyze?: () => void
   isAnalyzing?: boolean
+  sort?: string
+  onSortChange?: (s: string) => void
 }
 
 export function TenderFilters({
@@ -82,7 +85,10 @@ export function TenderFilters({
   onExport,
   onReAnalyze,
   isAnalyzing,
+  sort = "confidence",
+  onSortChange,
 }: TenderFiltersProps) {
+  const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [budgetMinInput, setBudgetMinInput] = useState(budgetRange[0] !== null ? String(budgetRange[0]) : "")
   const [budgetMaxInput, setBudgetMaxInput] = useState(budgetRange[1] !== null ? String(budgetRange[1]) : "")
 
@@ -155,6 +161,21 @@ export function TenderFilters({
             <SelectItem value="ignored">已忽略</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* 排序 */}
+        {onSortChange && (
+          <Select value={sort} onValueChange={onSortChange}>
+            <SelectTrigger className="w-[150px]" aria-label="排序方式">
+              <ArrowUpDown className="mr-1.5 size-3.5 text-muted-foreground" />
+              <SelectValue placeholder="排序" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="confidence">AI 信心度</SelectItem>
+              <SelectItem value="createdAt">最新加入</SelectItem>
+              <SelectItem value="dueDate">截止日最近</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         {/* 信心度 */}
         <Popover>
@@ -316,6 +337,10 @@ export function TenderFilters({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onSelect={() => setSendDialogOpen(true)}>
+                  <Mail className="mr-2 size-3.5" />
+                  立即發送報告
+                </DropdownMenuItem>
                 {onExport && (
                   <DropdownMenuItem onSelect={onExport}>
                     <Download className="mr-2 size-3.5" />
@@ -346,6 +371,8 @@ export function TenderFilters({
           </div>
         )}
       </div>
+
+      <SendReportDialog open={sendDialogOpen} onOpenChange={setSendDialogOpen} />
 
       {/* 篩選 chips + 筆數 */}
       <div className="flex flex-wrap items-center gap-2">
