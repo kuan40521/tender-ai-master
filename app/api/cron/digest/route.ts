@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/notifier"
 import { getTWDate, getTimeStr } from "@/lib/date"
+import { buildReportHtml } from "@/lib/email-template"
 
 export const maxDuration = 60
 
@@ -74,50 +75,23 @@ export async function GET(request: Request) {
     // 5. 彙整郵件內容
     const emailsCount = recipients.length
     const tenderCount = hotTenders.length
-    
-    const subject = `[Tender AI] 每日情報匯總：今日發現 ${tenderCount} 筆高價值商機！`
-    
-    let html = `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
-        <div style="background-color: #0f172a; padding: 24px; color: white; text-align: center;">
-          <h1 style="margin: 0; font-size: 20px;">政府採購情報 AI 每日匯總</h1>
-          <p style="margin: 8px 0 0 0; opacity: 0.8; font-size: 14px;">篩選條件：信心度 $\ge$ ${threshold}%</p>
-        </div>
-        <div style="padding: 24px;">
-          <p style="margin-top: 0;">您好，以下是系統為您篩選出品項：</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-    `
 
-    hotTenders.forEach(t => {
-      html += `
-        <div style="margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #e2e8f0;">
-          <div style="display: inline-block; padding: 4px 8px; background: #f0f9ff; color: #0369a1; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 8px;">
-             AI 信心度 ${t.confidence}%
-          </div>
-          <h3 style="margin: 0 0 8px 0; color: #0f172a; line-height: 1.4;">${t.title}</h3>
-          <p style="margin: 4px 0; font-size: 14px; color: #64748b;"><strong>機關：</strong>${t.agency}</p>
-          <p style="margin: 4px 0; font-size: 14px; color: #64748b;"><strong>預算：</strong>${t.budget}</p>
-          <p style="margin: 4px 0; font-size: 14px; color: #64748b;"><strong>截止日期：</strong>${t.dueDate}</p>
-          <a href="${t.url}" style="display: inline-block; margin-top: 12px; padding: 8px 16px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: 500;">前往 PCC 原文</a>
-        </div>
-      `
-    })
+    const subject = `[Tender AI] 每日情報匯總：今日發現 ${tenderCount} 筆高價值商機`
 
-    html += `
-          <div style="padding: 20px; background: #f8fafc; border-radius: 8px; text-align: center; margin-top: 20px;">
-            <p style="margin: 0; font-size: 13px; color: #94a3b8;">此為系統自動發送之情報。您可以隨時登入系統調整關鍵字策略或通知規則。</p>
-          </div>
-        </div>
-      </div>
-    `
+    const tenders = (hotTenders as any[]).map((t) => ({
+      confidence: t.confidence,
+      title: t.title,
+      agency: t.agency,
+      budget: t.budget,
+      dueDate: t.dueDate,
+      url: t.url,
+    }))
+
+    const html = buildReportHtml({ tenders, threshold, isManual: false })
 
     // 6. 發送郵件
     for (const rec of recipients) {
-      await sendEmail({
-        to: rec.email,
-        subject,
-        html
-      })
+      await sendEmail({ to: rec.email, subject, html })
     }
 
     return NextResponse.json({
