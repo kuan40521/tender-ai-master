@@ -17,21 +17,21 @@ export function ConfidenceIndicator({
   const level = confidenceLevel(score)
   const palette = {
     high: {
-      bar: "bg-success",
-      track: "bg-success/15",
-      text: "text-success",
+      bar: "bg-emerald-500",
+      track: "bg-emerald-500/15",
+      text: "text-emerald-600",
       label: "高",
     },
     medium: {
-      bar: "bg-warning",
-      track: "bg-warning/15",
-      text: "text-warning-foreground",
+      bar: "bg-amber-400",
+      track: "bg-amber-400/15",
+      text: "text-amber-600",
       label: "中",
     },
     low: {
-      bar: "bg-muted-foreground/60",
-      track: "bg-muted",
-      text: "text-muted-foreground",
+      bar: "bg-red-400",
+      track: "bg-red-400/15",
+      text: "text-red-500",
       label: "低",
     },
   }[level]

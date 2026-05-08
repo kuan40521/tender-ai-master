@@ -26,7 +26,11 @@ model Tender {
   status      String   @default("new") // 狀態: new, tracked, ignored
   createdAt   DateTime @default(now())
   
-  @@unique([agency, title, releaseDate]) // 避免重複抓取
+  @@unique([agency, title, releaseDate])
+  @@index([createdAt])
+  @@index([confidence])
+  @@index([status])
+  @@index([releaseDate])
 }
 
 model Keyword {

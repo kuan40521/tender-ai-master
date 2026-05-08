@@ -1,6 +1,7 @@
 "use client"
 
-import { Search, SlidersHorizontal, X } from "lucide-react"
+import { useRef, useEffect, useState } from "react"
+import { Search, SlidersHorizontal, X, DollarSign, ChevronDown, Download, RotateCcw, Sparkles, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,9 +22,18 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Calendar } from "@/components/ui/calendar"
 import { Badge } from "@/components/ui/badge"
+import { type BudgetRange } from "@/components/tenders/tenders-view"
 
 export type StatusFilter = "all" | "new" | "favorited" | "ignored"
 export type ConfidenceRange = [number, number]
@@ -37,6 +47,8 @@ interface TenderFiltersProps {
   onConfidenceChange: (range: ConfidenceRange) => void
   date: string
   onDateChange: (d: string) => void
+  budgetRange: BudgetRange
+  onBudgetRangeChange: (r: BudgetRange) => void
   totalCount: number
   filteredCount: number
   onRefresh?: () => void
@@ -58,6 +70,8 @@ export function TenderFilters({
   onConfidenceChange,
   date,
   onDateChange,
+  budgetRange,
+  onBudgetRangeChange,
   totalCount,
   filteredCount,
   onRefresh,
@@ -69,44 +83,52 @@ export function TenderFilters({
   onReAnalyze,
   isAnalyzing,
 }: TenderFiltersProps) {
+  const [budgetMinInput, setBudgetMinInput] = useState(budgetRange[0] !== null ? String(budgetRange[0]) : "")
+  const [budgetMaxInput, setBudgetMaxInput] = useState(budgetRange[1] !== null ? String(budgetRange[1]) : "")
+
+  const applyBudget = () => {
+    const min = budgetMinInput === "" ? null : parseInt(budgetMinInput)
+    const max = budgetMaxInput === "" ? null : parseInt(budgetMaxInput)
+    onBudgetRangeChange([isNaN(min as number) ? null : min, isNaN(max as number) ? null : max])
+  }
+
+  const resetBudget = () => {
+    setBudgetMinInput("")
+    setBudgetMaxInput("")
+    onBudgetRangeChange([null, null])
+  }
+
   const isConfidenceFiltered = confidence[0] > 0 || confidence[1] < 100
+  const isBudgetFiltered = budgetRange[0] !== null || budgetRange[1] !== null
+
   const activeChips: Array<{ label: string; onRemove: () => void }> = []
 
   if (status !== "all") {
-    const labelMap: Record<StatusFilter, string> = {
-      all: "",
-      new: "新案件",
-      favorited: "收藏",
-      ignored: "已忽略",
-    }
-    activeChips.push({
-      label: `狀態：${labelMap[status]}`,
-      onRemove: () => onStatusChange("all"),
-    })
+    const labelMap: Record<StatusFilter, string> = { all: "", new: "新案件", favorited: "收藏", ignored: "已忽略" }
+    activeChips.push({ label: `狀態：${labelMap[status]}`, onRemove: () => onStatusChange("all") })
   }
   if (isConfidenceFiltered) {
     activeChips.push({
-      label: `信心度 ${confidence[0]}% – ${confidence[1]}%`,
+      label: `信心度 ${confidence[0]}%–${confidence[1]}%`,
       onRemove: () => onConfidenceChange([0, 100]),
     })
   }
   if (query) {
-    activeChips.push({
-      label: `關鍵字：${query}`,
-      onRemove: () => onQueryChange(""),
-    })
+    activeChips.push({ label: `關鍵字：${query}`, onRemove: () => onQueryChange("") })
   }
-
   if (date) {
-    activeChips.push({
-      label: `日期：${date}`,
-      onRemove: () => onDateChange(""),
-    })
+    activeChips.push({ label: `日期：${date}`, onRemove: () => onDateChange("") })
+  }
+  if (isBudgetFiltered) {
+    const minLabel = budgetRange[0] !== null ? `${budgetRange[0]}萬` : "不限"
+    const maxLabel = budgetRange[1] !== null ? `${budgetRange[1]}萬` : "不限"
+    activeChips.push({ label: `金額：${minLabel}–${maxLabel}`, onRemove: resetBudget })
   }
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border bg-card px-4 py-3 md:px-6">
+    <div className="sticky top-0 z-10 flex flex-col gap-3 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-4 py-3 md:px-6">
       <div className="flex flex-wrap items-center gap-2">
+        {/* 搜尋 */}
         <div className="min-w-0 flex-1">
           <InputGroup>
             <InputGroupAddon align="inline-start">
@@ -121,11 +143,9 @@ export function TenderFilters({
           </InputGroup>
         </div>
 
-        <Select
-          value={status}
-          onValueChange={(v) => onStatusChange(v as StatusFilter)}
-        >
-          <SelectTrigger className="w-[140px]" aria-label="狀態篩選">
+        {/* 狀態 */}
+        <Select value={status} onValueChange={(v) => onStatusChange(v as StatusFilter)}>
+          <SelectTrigger className="w-[130px]" aria-label="狀態篩選">
             <SelectValue placeholder="狀態" />
           </SelectTrigger>
           <SelectContent>
@@ -136,12 +156,17 @@ export function TenderFilters({
           </SelectContent>
         </Select>
 
+        {/* 信心度 */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-1.5" aria-label="信心度">
+            <Button
+              variant="outline"
+              className={cn("gap-1.5", isConfidenceFiltered && "border-primary/50 bg-primary/5 text-primary")}
+              aria-label="信心度"
+            >
               <SlidersHorizontal className="size-3.5" />
               <span className="hidden sm:inline">信心度</span>
-              <span className="tabular-nums text-muted-foreground">
+              <span className="tabular-nums text-muted-foreground text-xs">
                 {confidence[0]}–{confidence[1]}
               </span>
             </Button>
@@ -155,30 +180,16 @@ export function TenderFilters({
                 </span>
               </div>
               <Slider
-                min={0}
-                max={100}
-                step={5}
+                min={0} max={100} step={5}
                 value={confidence}
-                onValueChange={(v) =>
-                  onConfidenceChange([v[0], v[1]] as ConfidenceRange)
-                }
+                onValueChange={(v) => onConfidenceChange([v[0], v[1]] as ConfidenceRange)}
                 aria-label="信心度區間"
               />
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onConfidenceChange([80, 100])}
-                >
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => onConfidenceChange([80, 100])}>
                   僅高價值
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onConfidenceChange([0, 100])}
-                >
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => onConfidenceChange([0, 100])}>
                   重設
                 </Button>
               </div>
@@ -186,16 +197,81 @@ export function TenderFilters({
           </PopoverContent>
         </Popover>
 
+        {/* 金額篩選 */}
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
-              className={cn(
-                "w-[160px] justify-start text-left font-normal",
-                !date && "text-muted-foreground"
-              )}
+              className={cn("gap-1.5", isBudgetFiltered && "border-primary/50 bg-primary/5 text-primary")}
+              aria-label="金額範圍"
             >
-              <span className="mr-2 text-sm italic">📅</span>
+              <DollarSign className="size-3.5" />
+              <span className="hidden sm:inline">金額</span>
+              {isBudgetFiltered ? (
+                <span className="tabular-nums text-xs text-muted-foreground">
+                  {budgetRange[0] ?? "∞"}–{budgetRange[1] ?? "∞"}萬
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">全部</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-72 p-4">
+            <div className="flex flex-col gap-4">
+              <span className="text-sm font-medium">預算範圍（萬元）</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="最低"
+                  value={budgetMinInput}
+                  onChange={(e) => setBudgetMinInput(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <span className="text-muted-foreground">–</span>
+                <Input
+                  type="number"
+                  placeholder="最高"
+                  value={budgetMaxInput}
+                  onChange={(e) => setBudgetMaxInput(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "100–500萬", min: 100, max: 500 },
+                  { label: "200–2000萬", min: 200, max: 2000 },
+                  { label: "2000萬以上", min: 2000, max: null },
+                ].map(({ label, min, max }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => {
+                      setBudgetMinInput(String(min))
+                      setBudgetMaxInput(max !== null ? String(max) : "")
+                      onBudgetRangeChange([min, max])
+                    }}
+                    className="rounded-md border border-dashed border-border bg-background px-2 py-1 text-xs text-muted-foreground hover:border-solid hover:bg-muted hover:text-foreground"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1" onClick={applyBudget}>套用</Button>
+                <Button variant="outline" size="sm" onClick={resetBudget}>重設</Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* 日期 */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn("w-[160px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+            >
+              <span className="mr-2 text-sm">📅</span>
               {date || "選擇民國日期"}
             </Button>
           </PopoverTrigger>
@@ -206,10 +282,7 @@ export function TenderFilters({
                 if (!date) return undefined
                 const parts = date.split("/")
                 if (parts.length === 3) {
-                  const westernYear = parseInt(parts[0]) + 1911
-                  const month = parseInt(parts[1]) - 1
-                  const day = parseInt(parts[2])
-                  return new Date(westernYear, month, day)
+                  return new Date(parseInt(parts[0]) + 1911, parseInt(parts[1]) - 1, parseInt(parts[2]))
                 }
                 return undefined
               })()}
@@ -228,71 +301,63 @@ export function TenderFilters({
           </PopoverContent>
         </Popover>
 
+        {/* 操作按鈕群組 */}
         {onRefresh && (
-          <div className="flex gap-2 flex-wrap">
-            {onExport && (
-              <Button variant="outline" className="gap-2" onClick={onExport}>
-                <span className="text-sm">📥</span>
-                匯出 CSV
-              </Button>
-            )}
-            {onReAnalyze && (
-              <Button
-                variant="outline"
-                className="gap-2 border-blue-500/50 text-blue-600 hover:bg-blue-50"
-                onClick={onReAnalyze}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <span className="animate-spin text-sm">⟳</span>
-                ) : (
-                  <span className="text-sm">🤖</span>
-                )}
-                {isAnalyzing ? "AI 分析中..." : "AI 重新分析"}
-              </Button>
-            )}
-            <Button 
-              variant="default" 
-              className="gap-2" 
-              onClick={onRefresh} 
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? (
-                <span className="animate-spin text-sm">↻</span>
-              ) : (
-                <span className="text-sm">↻</span>
-              )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="default" className="gap-2" onClick={onRefresh} disabled={isRefreshing}>
+              {isRefreshing ? <span className="animate-spin text-sm">↻</span> : <RotateCcw className="size-3.5" />}
               手動更新
             </Button>
-            {onClearAll && (
-              <Button 
-                variant={confirmClear ? "outline" : "destructive"}
-                className={confirmClear 
-                  ? "gap-2 border-orange-500 text-orange-600 hover:bg-orange-50 animate-pulse" 
-                  : "gap-2"
-                }
-                onClick={onClearAll} 
-                disabled={isClearing}
-              >
-                {isClearing ? "刪除中..." : confirmClear ? "⚠️ 確認刪除？" : "一鍵刪除"}
-              </Button>
-            )}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="size-9" aria-label="更多操作">
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {onExport && (
+                  <DropdownMenuItem onSelect={onExport}>
+                    <Download className="mr-2 size-3.5" />
+                    匯出 CSV
+                  </DropdownMenuItem>
+                )}
+                {onReAnalyze && (
+                  <DropdownMenuItem onSelect={onReAnalyze} disabled={isAnalyzing}>
+                    <Sparkles className="mr-2 size-3.5" />
+                    {isAnalyzing ? "AI 分析中..." : "AI 重新分析"}
+                  </DropdownMenuItem>
+                )}
+                {onClearAll && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={onClearAll}
+                      disabled={isClearing}
+                      className={confirmClear ? "text-destructive focus:text-destructive" : ""}
+                    >
+                      <Trash2 className="mr-2 size-3.5" />
+                      {isClearing ? "刪除中..." : confirmClear ? "⚠️ 確認刪除？" : "一鍵刪除"}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
 
+      {/* 篩選 chips + 筆數 */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-muted-foreground">
-          顯示 <span className="font-medium tabular-nums text-foreground">{filteredCount}</span> / {totalCount} 件
+          顯示{" "}
+          <span className="font-medium tabular-nums text-foreground">{filteredCount}</span>{" "}
+          / {totalCount} 件
         </span>
-        {activeChips.length > 0 ? (
+        {activeChips.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {activeChips.map((chip) => (
-              <Badge
-                key={chip.label}
-                variant="secondary"
-                className="h-6 gap-1 pr-1 text-[11px] font-normal"
-              >
+              <Badge key={chip.label} variant="secondary" className="h-6 gap-1 pr-1 text-[11px] font-normal">
                 {chip.label}
                 <button
                   type="button"
@@ -305,7 +370,7 @@ export function TenderFilters({
               </Badge>
             ))}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   )

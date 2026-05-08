@@ -1,91 +1,150 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback, useTransition } from "react"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { TenderFilters, type ConfidenceRange, type StatusFilter } from "@/components/tenders/tender-filters"
 import { TendersTable } from "@/components/tenders/tenders-table"
 import { TenderDetailSheet } from "@/components/tenders/tender-detail-sheet"
-import { type Tender } from "@/lib/mock-data"
+import { type Tender, parseBudgetToWan } from "@/lib/mock-data"
 
-import { Badge } from "@/components/ui/badge"
+export type BudgetRange = [number | null, number | null]
 
-export function TendersView({ 
-  initialTenders = [], 
-  initialKeywords = [] 
-}: { 
-  initialTenders?: any[], 
-  initialKeywords?: any[] 
-}) {
-  const [tenders, setTenders] = useState<Tender[]>(initialTenders.length > 0 ? initialTenders : [])
-  const [query, setQuery] = useState("")
-  const [status, setStatus] = useState<StatusFilter>("all")
-  const [confidence, setConfidence] = useState<ConfidenceRange>([0, 100])
-  
-  // 建立今日民國年日期 (例如 113/04/21)
-  const todayMinguo = useMemo(() => {
-    const now = new Date()
-    return `${now.getFullYear() - 1911}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`
-  }, [])
+interface TendersViewProps {
+  initialTenders?: any[]
+  initialKeywords?: any[]
+  total?: number
+  page?: number
+  pageSize?: number
+  initialQuery?: string
+  initialStatus?: string
+  initialConfidence?: [number, number]
+  initialDate?: string
+}
 
-  const [dateFilter, setDateFilter] = useState<string>(todayMinguo)
+export function TendersView({
+  initialTenders = [],
+  initialKeywords = [],
+  total = 0,
+  page = 1,
+  pageSize = 50,
+  initialQuery = "",
+  initialStatus = "all",
+  initialConfidence = [0, 100],
+  initialDate = "",
+}: TendersViewProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
+
+  const [tenders, setTenders] = useState<Tender[]>(initialTenders)
+  const [budgetRange, setBudgetRange] = useState<BudgetRange>([null, null])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
-  
-  const router = useRouter()
 
   useEffect(() => {
     setTenders(initialTenders)
-    
-    // 如果還有標案在「分析中」，啟動自動輪詢
-    const hasAnalyzing = initialTenders.some(t => t.confidence === 0 || t.reason === "AI 分析中...")
+    const hasAnalyzing = initialTenders.some(
+      (t) => t.confidence === 0 || t.reason === "AI 分析中..."
+    )
     if (hasAnalyzing) {
-      const timer = setInterval(() => {
-        router.refresh()
-      }, 3000)
+      const timer = setInterval(() => router.refresh(), 3000)
       return () => clearInterval(timer)
     }
   }, [initialTenders, router])
 
+  const updateParams = useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("page")
+      Object.entries(updates).forEach(([k, v]) => {
+        if (!v || v === "all") {
+          params.delete(k)
+        } else {
+          params.set(k, v)
+        }
+      })
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`)
+      })
+    },
+    [searchParams, pathname, router]
+  )
+
+  const goToPage = useCallback(
+    (p: number) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (p <= 1) {
+        params.delete("page")
+      } else {
+        params.set("page", String(p))
+      }
+      startTransition(() => {
+        router.push(`${pathname}?${params.toString()}`)
+      })
+    },
+    [searchParams, pathname, router]
+  )
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const filteredByBudget = useMemo(() => {
+    const [minWan, maxWan] = budgetRange
+    if (minWan === null && maxWan === null) return tenders
+    return tenders.filter((t) => {
+      const wan = parseBudgetToWan(t.budget)
+      if (minWan !== null && wan < minWan) return false
+      if (maxWan !== null && wan > maxWan) return false
+      return true
+    })
+  }, [tenders, budgetRange])
+
+  const todayMinguo = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear() - 1911}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`
+  }, [])
+
+  const currentDate = initialDate || todayMinguo
+
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
-      // 加入 force=true 確保手動點擊時能直接執行，不受排程時間限制
-      // 加入 manual=true 讓正式環境允許手動觸發
-      // 加入 date 參數傳遞前端設定的民國日期 (例如 113/04/22)
-      const res = await fetch(`/api/cron/scrape?force=true&manual=true&date=${encodeURIComponent(dateFilter)}`)
+      const res = await fetch(
+        `/api/cron/scrape?force=true&manual=true&date=${encodeURIComponent(currentDate)}`
+      )
       const data = await res.json()
       if (data.success) {
         toast.success(data.message)
-        router.refresh() // 觸發 Next.js 重新執行 page.tsx 的伺服器端資料獲取
+        router.refresh()
       } else {
         toast.error("更新失敗：" + data.error)
       }
-    } catch (error) {
+    } catch {
       toast.error("無法連線至更新伺服器")
     } finally {
       setIsRefreshing(false)
     }
   }
+
   const handleClearAll = async () => {
     if (!confirmClear) {
-      // 第一次點擊：顯示確認提示
       setConfirmClear(true)
-      // 3 秒後自動取消確認狀態
       setTimeout(() => setConfirmClear(false), 3000)
       return
     }
-    // 第二次點擊：真正執行刪除
     setConfirmClear(false)
     setIsClearing(true)
     try {
-      // 使用 GET 方式，確保任何環境都能正常呼叫
       const res = await fetch("/api/tenders/clear")
       const data = await res.json()
       if (data.success) {
@@ -104,14 +163,9 @@ export function TendersView({
 
   const handleReAnalyze = async () => {
     setIsAnalyzing(true)
-    
-    // 【新增】立即反饋：把目前列表中的標案暫時重置為「分析中」動畫狀態
-    setTenders(prev => prev.map(t => ({
-      ...t,
-      confidence: 0, 
-      reason: "AI 分析中..." 
-    })))
-    
+    setTenders((prev) =>
+      prev.map((t) => ({ ...t, confidence: 0, reason: "AI 分析中..." }))
+    )
     toast.info("AI 重新分析中，請稍候...")
     try {
       const res = await fetch("/api/cron/analyze?force=true&manual=true")
@@ -129,82 +183,27 @@ export function TendersView({
     }
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return tenders
-      .filter((t) => {
-        if (status !== "all" && t.status !== status) return false
-        if (t.confidence < confidence[0] || t.confidence > confidence[1])
-          return false
-        if (dateFilter && t.releaseDate !== dateFilter) return false
-        if (!q) return true
-        return (
-          t.title.toLowerCase().includes(q) ||
-          t.agency.toLowerCase().includes(q) ||
-          t.tags.some((tag: string) => tag.toLowerCase().includes(q))
-        )
-      })
-      .sort((a, b) => b.confidence - a.confidence)
-  }, [tenders, query, status, confidence, dateFilter])
-
-  const active = activeId ? tenders.find((t) => t.id === activeId) ?? null : null
-
-  const openDetail = (t: Tender) => {
-    setActiveId(t.id)
-    setSheetOpen(true)
-  }
-
-  const toggleFavorite = (id: string) => {
-    setTenders((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t
-        const next: Tender["status"] =
-          t.status === "favorited" ? "new" : "favorited"
-        toast.success(
-          next === "favorited" ? "已加入收藏清單" : "已從收藏移除",
-        )
-        return { ...t, status: next }
-      }),
-    )
-  }
-
-  const toggleIgnore = (id: string) => {
-    setTenders((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t
-        const next: Tender["status"] =
-          t.status === "ignored" ? "new" : "ignored"
-        toast(next === "ignored" ? "已標記為忽略" : "已取消忽略")
-        return { ...t, status: next }
-      }),
-    )
-  }
-
   const handleExportCSV = () => {
-    if (filtered.length === 0) {
+    if (filteredByBudget.length === 0) {
       toast.error("目前無資料可供匯出")
       return
     }
-
     const headers = ["機關名稱", "標案名稱", "預算金額", "招標方式", "採購方式", "公告日期", "截止日期", "AI信心度", "網址"]
-    const rows = filtered.map(t => [
-      t.agency,
-      t.title,
-      t.budget.replace(/,/g, ""),
-      t.biddingType,
-      t.procurementType,
-      t.releaseDate,
-      t.dueDate,
-      t.confidence,
-      t.url
-    ])
-
+    const rows = filteredByBudget.map((t) => {
+      const td = t as any
+      return [
+        td.agency, td.title, String(td.budget).replace(/,/g, ""),
+        td.biddingType, td.procurementType, td.releaseDate,
+        td.dueDate, td.confidence, td.url,
+      ]
+    })
     const csvContent = [
       headers.join(","),
-      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      ...rows.map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      ),
     ].join("\n")
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" })
+    const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
@@ -213,6 +212,30 @@ export function TendersView({
     link.click()
     document.body.removeChild(link)
     toast.success("CSV 匯出成功")
+  }
+
+  const active = activeId ? tenders.find((t) => t.id === activeId) ?? null : null
+
+  const toggleFavorite = (id: string) => {
+    setTenders((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t
+        const next: Tender["status"] = t.status === "favorited" ? "new" : "favorited"
+        toast.success(next === "favorited" ? "已加入收藏清單" : "已從收藏移除")
+        return { ...t, status: next }
+      })
+    )
+  }
+
+  const toggleIgnore = (id: string) => {
+    setTenders((prev) =>
+      prev.map((t) => {
+        if (t.id !== id) return t
+        const next: Tender["status"] = t.status === "ignored" ? "new" : "ignored"
+        toast(next === "ignored" ? "已標記為忽略" : "已取消忽略")
+        return { ...t, status: next }
+      })
+    )
   }
 
   return (
@@ -224,7 +247,9 @@ export function TendersView({
             {initialKeywords.filter((k: any) => k.type === "positive").map((k: any) => (
               <Badge key={k.id} variant="outline" className="bg-primary/5 text-primary border-primary/20">{k.word}</Badge>
             ))}
-            {initialKeywords.filter((k: any) => k.type === "positive").length === 0 && <span className="text-xs text-muted-foreground">未設定</span>}
+            {initialKeywords.filter((k: any) => k.type === "positive").length === 0 && (
+              <span className="text-xs text-muted-foreground">未設定</span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -233,23 +258,32 @@ export function TendersView({
             {initialKeywords.filter((k: any) => k.type === "negative").map((k: any) => (
               <Badge key={k.id} variant="outline" className="bg-destructive/5 text-destructive border-destructive/20">{k.word}</Badge>
             ))}
-            {initialKeywords.filter((k: any) => k.type === "negative").length === 0 && <span className="text-xs text-muted-foreground">未設定</span>}
+            {initialKeywords.filter((k: any) => k.type === "negative").length === 0 && (
+              <span className="text-xs text-muted-foreground">未設定</span>
+            )}
           </div>
         </div>
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card className={`overflow-hidden p-0 transition-opacity ${isPending ? "opacity-70" : ""}`}>
         <TenderFilters
-          query={query}
-          onQueryChange={setQuery}
-          status={status}
-          onStatusChange={setStatus}
-          confidence={confidence}
-          onConfidenceChange={setConfidence}
-          date={dateFilter}
-          onDateChange={setDateFilter}
-          totalCount={tenders.length}
-          filteredCount={filtered.length}
+          query={initialQuery}
+          onQueryChange={(q) => updateParams({ query: q })}
+          status={initialStatus as StatusFilter}
+          onStatusChange={(s) => updateParams({ status: s })}
+          confidence={initialConfidence as ConfidenceRange}
+          onConfidenceChange={(c) =>
+            updateParams({
+              confidence_min: c[0] === 0 ? "" : String(c[0]),
+              confidence_max: c[1] === 100 ? "" : String(c[1]),
+            })
+          }
+          date={currentDate}
+          onDateChange={(d) => updateParams({ date: d })}
+          budgetRange={budgetRange}
+          onBudgetRangeChange={setBudgetRange}
+          totalCount={total}
+          filteredCount={filteredByBudget.length + (total - tenders.length)}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           onClearAll={handleClearAll}
@@ -260,11 +294,41 @@ export function TendersView({
           isAnalyzing={isAnalyzing}
         />
         <TendersTable
-          tenders={filtered}
-          onView={openDetail}
+          tenders={filteredByBudget}
+          onView={(t) => { setActiveId(t.id); setSheetOpen(true) }}
           onToggleFavorite={toggleFavorite}
           onToggleIgnore={toggleIgnore}
         />
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-xs text-muted-foreground">
+              第 {page} / {totalPages} 頁，共 {total} 筆
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page - 1)}
+                disabled={page <= 1 || isPending}
+                className="h-8 gap-1"
+              >
+                <ChevronLeft className="size-3.5" />
+                上一頁
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(page + 1)}
+                disabled={page >= totalPages || isPending}
+                className="h-8 gap-1"
+              >
+                下一頁
+                <ChevronRight className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <TenderDetailSheet

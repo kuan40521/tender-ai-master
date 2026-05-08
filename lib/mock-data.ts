@@ -293,6 +293,11 @@ export const mockTrendData = [
   { date: "04-21", high: 7, medium: 13 },
 ]
 
+export function parseBudgetToWan(str: string | number): number {
+  const n = parseInt(String(str).replace(/,/g, ""), 10)
+  return isNaN(n) ? 0 : Math.round(n / 10_000)
+}
+
 export function formatBudget(amount: number | string): string {
   let numVal = typeof amount === "number" ? amount : parseInt(String(amount).replace(/,/g, ""), 10)
   if (isNaN(numVal)) return String(amount)
