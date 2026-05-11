@@ -85,6 +85,21 @@ export function TendersView({
     [searchParams, pathname, router]
   )
 
+  // 日期變更不走 startTransition，確保 URL 立即更新後才觸發 手動更新
+  const handleDateChange = useCallback(
+    (d: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("page")
+      if (!d) {
+        params.delete("date")
+      } else {
+        params.set("date", d)
+      }
+      router.push(`${pathname}?${params.toString()}`)
+    },
+    [searchParams, pathname, router]
+  )
+
   const goToPage = useCallback(
     (p: number) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -283,7 +298,7 @@ export function TendersView({
             })
           }
           date={currentDate}
-          onDateChange={(d) => updateParams({ date: d })}
+          onDateChange={handleDateChange}
           procurementType={initialProcurementType}
           onProcurementTypeChange={(pt) => {
             // "all" 保留在 URL 讓 page.tsx 知道要顯示全部，空字串則刪除（回到預設勞務類）
