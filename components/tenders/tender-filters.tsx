@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, SlidersHorizontal, X, DollarSign, ChevronDown, Download, RotateCcw, Sparkles, Trash2, ArrowUpDown, Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,8 @@ interface TenderFiltersProps {
   isAnalyzing?: boolean
   sort?: string
   onSortChange?: (s: string) => void
+  procurementType?: string
+  onProcurementTypeChange?: (pt: string) => void
 }
 
 export function TenderFilters({
@@ -87,10 +89,34 @@ export function TenderFilters({
   isAnalyzing,
   sort = "confidence",
   onSortChange,
+  procurementType = "",
+  onProcurementTypeChange,
 }: TenderFiltersProps) {
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [budgetMinInput, setBudgetMinInput] = useState(budgetRange[0] !== null ? String(budgetRange[0]) : "")
   const [budgetMaxInput, setBudgetMaxInput] = useState(budgetRange[1] !== null ? String(budgetRange[1]) : "")
+  const [localQuery, setLocalQuery] = useState(query)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Sync localQuery when parent clears the query (e.g. chip remove)
+  useEffect(() => {
+    setLocalQuery(query)
+  }, [query])
+
+  const handleQueryChange = (value: string) => {
+    setLocalQuery(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      onQueryChange(value)
+    }, 300)
+  }
+
+  const handleQueryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      onQueryChange(localQuery)
+    }
+  }
 
   const applyBudget = () => {
     const min = budgetMinInput === "" ? null : parseInt(budgetMinInput)
@@ -122,6 +148,9 @@ export function TenderFilters({
   if (query) {
     activeChips.push({ label: `關鍵字：${query}`, onRemove: () => onQueryChange("") })
   }
+  if (procurementType) {
+    activeChips.push({ label: `採購類別：${procurementType}`, onRemove: () => onProcurementTypeChange?.("") })
+  }
   if (date) {
     activeChips.push({ label: `日期：${date}`, onRemove: () => onDateChange("") })
   }
@@ -142,8 +171,9 @@ export function TenderFilters({
             </InputGroupAddon>
             <InputGroupInput
               placeholder="搜尋標案名稱、機關或標籤…"
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
+              value={localQuery}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              onKeyDown={handleQueryKeyDown}
               aria-label="搜尋標案"
             />
           </InputGroup>
@@ -321,6 +351,18 @@ export function TenderFilters({
             />
           </PopoverContent>
         </Popover>
+
+        {/* 勞務類快篩 */}
+        {onProcurementTypeChange && (
+          <Button
+            variant="outline"
+            className={cn("gap-1.5", procurementType === "勞務類" && "border-primary/50 bg-primary/5 text-primary")}
+            onClick={() => onProcurementTypeChange(procurementType === "勞務類" ? "" : "勞務類")}
+            aria-label="勞務類篩選"
+          >
+            勞務類
+          </Button>
+        )}
 
         {/* 操作按鈕群組 */}
         {onRefresh && (

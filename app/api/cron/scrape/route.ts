@@ -97,9 +97,15 @@ export async function GET(request: Request) {
       }
     }
 
-    // 5. 等待 AI 分析完成（平行處理，與 analyze 路由同樣速度）
-    if (newlyAdded.length > 0) {
-      await runBackgroundTasks(newlyAdded)
+    // 5. 等待 AI 分析完成：重新分析當日所有標案（含既有 + 新增）
+    const dateForAnalysis = targetDate || getMinguoDate(getTWDate())
+    const tendersToAnalyze = await db.tender.findMany({
+      where: { releaseDate: dateForAnalysis },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    })
+    if (tendersToAnalyze.length > 0) {
+      await runBackgroundTasks(tendersToAnalyze)
     }
 
     // 6. 紀錄執行狀態

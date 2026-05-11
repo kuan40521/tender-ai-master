@@ -19,6 +19,7 @@ export default async function TendersPage({
   const confidenceMax = parseInt(searchParams.confidence_max ?? "100")
   const date = searchParams.date ?? ""
   const sort = searchParams.sort ?? "confidence"
+  const procurementType = searchParams.procurementType ?? ""
 
   let tenders: any[] = []
   let keywords: any[] = []
@@ -30,6 +31,7 @@ export default async function TendersPage({
     }
     if (status !== "all") where.status = status
     if (date) where.releaseDate = date
+    if (procurementType) where.procurementType = { contains: procurementType }
     if (query) {
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },
@@ -85,6 +87,7 @@ export default async function TendersPage({
           initialConfidence={[confidenceMin, confidenceMax]}
           initialDate={date}
           initialSort={sort}
+          initialProcurementType={procurementType}
         />
       </div>
     </div>
