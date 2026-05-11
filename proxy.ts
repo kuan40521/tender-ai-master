@@ -17,6 +17,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public (public folder)
      */
-    "/((?!api/auth|api/cron|auth/signin|_next/static|_next/image|favicon.ico|public).*)",
+    "/((?!api/auth|api/cron|auth/signin|tenders|_next/static|_next/image|favicon.ico|public).*)",
   ],
 }
