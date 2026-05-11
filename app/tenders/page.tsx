@@ -19,7 +19,8 @@ export default async function TendersPage({
   const confidenceMax = parseInt(searchParams.confidence_max ?? "100")
   const date = searchParams.date ?? ""
   const sort = searchParams.sort ?? "confidence"
-  const procurementType = searchParams.procurementType ?? ""
+  // "all" = 顯示全部；未設定時預設只顯示勞務類
+  const procurementType = searchParams.procurementType ?? "勞務類"
 
   let tenders: any[] = []
   let keywords: any[] = []
@@ -31,7 +32,7 @@ export default async function TendersPage({
     }
     if (status !== "all") where.status = status
     if (date) where.releaseDate = date
-    if (procurementType) where.procurementType = { contains: procurementType }
+    if (procurementType && procurementType !== "all") where.procurementType = { contains: procurementType }
     if (query) {
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },

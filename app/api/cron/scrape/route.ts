@@ -63,7 +63,9 @@ export async function GET(request: Request) {
       positiveKeywords, 
       isForce && targetDate ? targetDate : undefined
     )
+    // 只保留勞務類標案
     const filteredList = filterTenders(scrapedList, positiveKeywords, negativeKeywords)
+      .filter(t => t.procurementType.includes("勞務"))
 
     const newlyAdded = []
 

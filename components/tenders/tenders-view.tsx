@@ -285,7 +285,17 @@ export function TendersView({
           date={currentDate}
           onDateChange={(d) => updateParams({ date: d })}
           procurementType={initialProcurementType}
-          onProcurementTypeChange={(pt) => updateParams({ procurementType: pt })}
+          onProcurementTypeChange={(pt) => {
+            // "all" 保留在 URL 讓 page.tsx 知道要顯示全部，空字串則刪除（回到預設勞務類）
+            const params = new URLSearchParams(searchParams.toString())
+            params.delete("page")
+            if (!pt || pt === "勞務類") {
+              params.delete("procurementType")
+            } else {
+              params.set("procurementType", pt)
+            }
+            startTransition(() => router.push(`${pathname}?${params.toString()}`))
+          }}
           sort={initialSort}
           onSortChange={(s) => updateParams({ sort: s === "confidence" ? "" : s })}
           budgetRange={budgetRange}

@@ -93,6 +93,7 @@ export function TenderFilters({
   onProcurementTypeChange,
 }: TenderFiltersProps) {
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [datePickerOpen, setDatePickerOpen] = useState(false)
   const [budgetMinInput, setBudgetMinInput] = useState(budgetRange[0] !== null ? String(budgetRange[0]) : "")
   const [budgetMaxInput, setBudgetMaxInput] = useState(budgetRange[1] !== null ? String(budgetRange[1]) : "")
   const [localQuery, setLocalQuery] = useState(query)
@@ -148,8 +149,8 @@ export function TenderFilters({
   if (query) {
     activeChips.push({ label: `關鍵字：${query}`, onRemove: () => onQueryChange("") })
   }
-  if (procurementType) {
-    activeChips.push({ label: `採購類別：${procurementType}`, onRemove: () => onProcurementTypeChange?.("") })
+  if (procurementType === "all") {
+    activeChips.push({ label: "採購類別：全部", onRemove: () => onProcurementTypeChange?.("勞務類") })
   }
   if (date) {
     activeChips.push({ label: `日期：${date}`, onRemove: () => onDateChange("") })
@@ -316,7 +317,7 @@ export function TenderFilters({
         </Popover>
 
         {/* 日期 */}
-        <Popover>
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -346,18 +347,19 @@ export function TenderFilters({
                 } else {
                   onDateChange("")
                 }
+                setDatePickerOpen(false)
               }}
               initialFocus
             />
           </PopoverContent>
         </Popover>
 
-        {/* 勞務類快篩 */}
+        {/* 勞務類快篩：預設 ON（"all" = 顯示全部）*/}
         {onProcurementTypeChange && (
           <Button
             variant="outline"
-            className={cn("gap-1.5", procurementType === "勞務類" && "border-primary/50 bg-primary/5 text-primary")}
-            onClick={() => onProcurementTypeChange(procurementType === "勞務類" ? "" : "勞務類")}
+            className={cn("gap-1.5", procurementType !== "all" && "border-primary/50 bg-primary/5 text-primary")}
+            onClick={() => onProcurementTypeChange(procurementType === "all" ? "勞務類" : "all")}
             aria-label="勞務類篩選"
           >
             勞務類
