@@ -10,17 +10,18 @@ const PAGE_SIZE = 50
 export default async function TendersPage({
   searchParams,
 }: {
-  searchParams: { [key: string]: string | undefined }
+  searchParams: Promise<{ [key: string]: string | undefined }>
 }) {
-  const page = Math.max(1, parseInt(searchParams.page ?? "1"))
-  const query = searchParams.query ?? ""
-  const status = searchParams.status ?? "all"
-  const confidenceMin = parseInt(searchParams.confidence_min ?? "0")
-  const confidenceMax = parseInt(searchParams.confidence_max ?? "100")
-  const date = searchParams.date ?? ""
-  const sort = searchParams.sort ?? "confidence"
+  const params = await searchParams
+  const page = Math.max(1, parseInt(params.page ?? "1"))
+  const query = params.query ?? ""
+  const status = params.status ?? "all"
+  const confidenceMin = parseInt(params.confidence_min ?? "0")
+  const confidenceMax = parseInt(params.confidence_max ?? "100")
+  const date = params.date ?? ""
+  const sort = params.sort ?? "confidence"
   // "all" = 顯示全部；未設定時預設只顯示勞務類
-  const procurementType = searchParams.procurementType ?? "勞務類"
+  const procurementType = params.procurementType ?? "勞務類"
 
   let tenders: any[] = []
   let keywords: any[] = []
