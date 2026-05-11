@@ -20,20 +20,19 @@ export default async function TendersPage({
   const confidenceMax = parseInt(params.confidence_max ?? "100")
   const date = params.date ?? ""
   const sort = params.sort ?? "confidence"
-  // "all" = 顯示全部；未設定時預設只顯示勞務類
-  const procurementType = params.procurementType ?? "勞務類"
 
   let tenders: any[] = []
   let keywords: any[] = []
   let total = 0
 
   try {
+    // 系統僅處理勞務類標案，硬性條件不開放使用者切換
     const where: Record<string, unknown> = {
       confidence: { gte: confidenceMin, lte: confidenceMax },
+      procurementType: { contains: "勞務類" },
     }
     if (status !== "all") where.status = status
     if (date) where.releaseDate = date
-    if (procurementType && procurementType !== "all") where.procurementType = { contains: procurementType }
     if (query) {
       where.OR = [
         { title: { contains: query, mode: "insensitive" } },
@@ -89,7 +88,6 @@ export default async function TendersPage({
           initialConfidence={[confidenceMin, confidenceMax]}
           initialDate={date}
           initialSort={sort}
-          initialProcurementType={procurementType}
         />
       </div>
     </div>

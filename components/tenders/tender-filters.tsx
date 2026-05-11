@@ -62,8 +62,6 @@ interface TenderFiltersProps {
   isAnalyzing?: boolean
   sort?: string
   onSortChange?: (s: string) => void
-  procurementType?: string
-  onProcurementTypeChange?: (pt: string) => void
 }
 
 export function TenderFilters({
@@ -89,8 +87,6 @@ export function TenderFilters({
   isAnalyzing,
   sort = "confidence",
   onSortChange,
-  procurementType = "",
-  onProcurementTypeChange,
 }: TenderFiltersProps) {
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [datePickerOpen, setDatePickerOpen] = useState(false)
@@ -148,9 +144,6 @@ export function TenderFilters({
   }
   if (query) {
     activeChips.push({ label: `關鍵字：${query}`, onRemove: () => onQueryChange("") })
-  }
-  if (procurementType === "all") {
-    activeChips.push({ label: "採購類別：全部", onRemove: () => onProcurementTypeChange?.("勞務類") })
   }
   if (date) {
     activeChips.push({ label: `日期：${date}`, onRemove: () => onDateChange("") })
@@ -353,18 +346,6 @@ export function TenderFilters({
             />
           </PopoverContent>
         </Popover>
-
-        {/* 勞務類快篩：預設 ON（"all" = 顯示全部）*/}
-        {onProcurementTypeChange && (
-          <Button
-            variant="outline"
-            className={cn("gap-1.5", procurementType !== "all" && "border-primary/50 bg-primary/5 text-primary")}
-            onClick={() => onProcurementTypeChange(procurementType === "all" ? "勞務類" : "all")}
-            aria-label="勞務類篩選"
-          >
-            勞務類
-          </Button>
-        )}
 
         {/* 操作按鈕群組 */}
         {onRefresh && (

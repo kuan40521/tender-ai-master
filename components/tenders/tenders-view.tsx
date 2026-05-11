@@ -26,7 +26,6 @@ interface TendersViewProps {
   initialConfidence?: [number, number]
   initialDate?: string
   initialSort?: string
-  initialProcurementType?: string
 }
 
 export function TendersView({
@@ -40,7 +39,6 @@ export function TendersView({
   initialConfidence = [0, 100],
   initialDate = "",
   initialSort = "confidence",
-  initialProcurementType = "",
 }: TendersViewProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -299,18 +297,6 @@ export function TendersView({
           }
           date={currentDate}
           onDateChange={handleDateChange}
-          procurementType={initialProcurementType}
-          onProcurementTypeChange={(pt) => {
-            // "all" 保留在 URL 讓 page.tsx 知道要顯示全部，空字串則刪除（回到預設勞務類）
-            const params = new URLSearchParams(searchParams.toString())
-            params.delete("page")
-            if (!pt || pt === "勞務類") {
-              params.delete("procurementType")
-            } else {
-              params.set("procurementType", pt)
-            }
-            startTransition(() => router.push(`${pathname}?${params.toString()}`))
-          }}
           sort={initialSort}
           onSortChange={(s) => updateParams({ sort: s === "confidence" ? "" : s })}
           budgetRange={budgetRange}

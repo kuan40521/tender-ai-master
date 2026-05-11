@@ -42,7 +42,9 @@ export async function GET(request: Request) {
           { reason: { contains: "分析中" } }
         ]
       },
-      take: 100,
+      // 限制單次批量，避免 Netlify Function timeout（10s Free / 26s Pro）。
+      // 排程每 5 min 跑一次，會逐批消化 backlog。
+      take: 25,
       orderBy: { createdAt: 'desc' }
     })
 

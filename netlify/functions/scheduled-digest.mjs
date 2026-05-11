@@ -1,16 +1,39 @@
 import { schedule } from "@netlify/functions"
 
+// 每 10 分鐘 ping 一次 digest endpoint。
+// endpoint 內部會比對 DB 設定的 dailyTimes（10 min window）決定是否真的發報。
 export const handler = schedule("*/10 * * * *", async () => {
   const siteUrl = process.env.SITE_URL || process.env.URL
-  const cronSecret = process.env.CRON_SECRET || ''
+  const cronSecret = process.env.CRON_SECRET || ""
 
-  try {
-    const res = await fetch(`${siteUrl}/api/cron/digest?cron_secret=${cronSecret}`)
-    const data = await res.json()
-    console.log('[scheduled-digest]', data.message || data)
-  } catch (e) {
-    console.error('[scheduled-digest] error:', e)
+  if (!siteUrl) {
+    console.error("[scheduled-digest] 缺少 SITE_URL / URL 環境變數")
+    return { statusCode: 500 }
+  }
+  if (!cronSecret) {
+    console.error("[scheduled-digest] 缺少 CRON_SECRET 環境變數")
+    return { statusCode: 500 }
   }
 
-  return { statusCode: 200 }
+  const url = `${siteUrl}/api/cron/digest?cron_secret=${encodeURIComponent(cronSecret)}`
+  const startedAt = Date.now()
+
+  try {
+    const res = await fetch(url)
+    const elapsed = Date.now() - startedAt
+    const text = await res.text()
+    let data
+    try { data = JSON.parse(text) } catch { data = { raw: text } }
+
+    if (!res.ok) {
+      console.error(`[scheduled-digest] HTTP ${res.status} (${elapsed}ms):`, data)
+      return { statusCode: res.status }
+    }
+
+    console.log(`[scheduled-digest] OK (${elapsed}ms):`, data.message || data)
+    return { statusCode: 200 }
+  } catch (e) {
+    console.error(`[scheduled-digest] fetch error (${Date.now() - startedAt}ms):`, e?.message || e)
+    return { statusCode: 500 }
+  }
 })
